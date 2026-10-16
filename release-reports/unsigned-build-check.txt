@@ -1,0 +1,1 @@
+PASS: release validation rejects missing external signing credentials.

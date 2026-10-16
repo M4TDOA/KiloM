@@ -1,0 +1,147 @@
+const {JSDOM}=require(process.env.KILOM_JSDOM||'jsdom');
+const fs=require('fs'),path=require('path'),assert=require('assert'),vm=require('vm');
+const assets=path.resolve(__dirname,'../app/src/main/assets');
+const dom=new JSDOM(fs.readFileSync(path.join(assets,'index.html'),'utf8'),{url:'https://kilom.local/index.html',runScripts:'outside-only',pretendToBeVisual:true});
+const w=dom.window;let state={profile:null,trips:[]},files=[],exportRequests=[],theme='light',cacheCalls=0,resetRequests=0,themeError='';
+w.scrollTo=()=>{};w.confirm=()=>true;
+w.fetch=async()=>({json:async()=>JSON.parse(fs.readFileSync(path.join(assets,'distances.json'),'utf8'))});
+w.KiloNative={getTheme:()=>theme,setTheme:value=>{if(themeError)return themeError;theme=value;return ''},clearCache:()=>{cacheCalls++;w.cacheCleared(null)},requestDataReset:()=>{resetRequests++},load:()=>JSON.stringify(state),save:s=>{state=JSON.parse(s);return ''},notifications:()=>{},notificationsEnabled:()=>true,files:()=>JSON.stringify(files),exportPeriod:end=>{exportRequests.push(end);files=[{name:'KiloM_'+end+'_test.xlsx',modified:Date.now(),bytes:79000}];w.exportFinished([files[0].name],null)},shareFile:name=>{w.shared=name},saveFile:name=>{w.saved=name},openMaps:url=>{w.mapsURL=url},close:()=>{}};
+const get=id=>w.document.getElementById(id),call=s=>vm.runInContext(s,dom.getInternalVMContext());let checks=0;
+function ok(condition,msg){checks++;assert(condition,msg)}
+(async()=>{
+ call(fs.readFileSync(path.join(assets,'material-icons.js'),'utf8'));call(fs.readFileSync(path.join(assets,'theme.js'),'utf8'));call(fs.readFileSync(path.join(assets,'itinerary.js'),'utf8'));call(fs.readFileSync(path.join(assets,'route-order.js'),'utf8'));call(fs.readFileSync(path.join(assets,'app.js'),'utf8'));await new Promise(r=>setTimeout(r,20));ok(!!get('profileForm'),'Onboarding');
+ get('pName').value='Mat Test';get('pRole').value='Opérateur informatique';get('pEmployee').value='00123';get('pSupplier').value='00456';get('pAnchor').value='2026-09-30';get('profileForm').onsubmit({preventDefault(){}});
+ ok(state.profile.employee==='00123','Profile identifiers stay strings');ok(!!get('placeSearch'),'Route screen after profile');
+ const dome=call('calculate({route:[1,26,1],extraKm:0,carpool:false})');
+ ok(dome.legs[0]===6.5&&dome.legs[1]===6.5&&dome.km===13.0,'Dome both legs follow confirmed distance');
+ ok(Math.abs(dome.amount-8.45)<1e-9,'Dome amount matches Excel');
+ ok(call('data.matrix[1][26]===6.5&&data.matrix[26][1]===6.5'),'School chooser and optimizer use 6.5 in both directions');
+ ok(!w.document.querySelector('.toggle'),'No trip mode selector');call('addStop(44);returnHome()');ok(get('estimate').textContent.includes('0,8'),'Simple AR expected .8');call('saveTrip()');ok(state.trips.length===1,'Save simple');ok(state.trips[0].route.join(',')==='1,44,1','Roundtrip route persisted');
+ call('addStop(6);addStop(44);returnHome()');ok(get('estimate').querySelector('strong').textContent.trim()==='4 km','Circuit displayed-grid km');call('saveTrip()');ok(state.trips.length===2,'Save circuit');
+ call('addStop(44);returnHome();draft.detour=true;draft.extraKm="2,5";draft.detourLeg=1;draft.reason="Accident & route fermée";renderExtras()');ok(get('estimate').textContent.includes('3,3'),'Detour once');call('saveTrip()');ok(state.trips.length===3,'Save detour');
+ call('openTab("history")');ok(w.document.querySelectorAll('article.card').length===3,'History cards');call('editTrip('+JSON.stringify(state.trips[0].id)+');removeStop(2);saveTrip()');ok(state.trips.length===3&&state.trips[0].route.length===2,'Edit replaces trip');
+ call('openTab("exports");exportNow()');ok(exportRequests.length===1&&files.length===1,'Manual export call');ok(w.document.querySelector('.export-file').textContent.includes('.xlsx'),'Export rendered');
+ call('openTab("route");addStop(2);draft.carpool=true;draft.passengers="Jean & Marie";renderExtras();saveTrip()');ok(state.trips.at(-1).carpool&&state.trips.at(-1).passengers==='Jean & Marie','Carpool');
+ call('addStop(44);draft.detour=true;draft.extraKm="invalid";draft.reason="Test";renderExtras();saveTrip()');ok(state.trips.length===4,'Invalid detour rejected');
+ call('cancelEdit();addStop(6);addStop(44);moveStop(2,-1)');ok(call('draft.stops.join(",")')==='1,44,6','Reorder stops');call('removeStop(2)');ok(call('draft.stops.join(",")')==='1,44','Remove stop');
+ ok(call('routeOf().join(",")')==='1,44','One-way mode');call('returnHome()');ok(call('routeOf().join(",")')==='1,44,1','Return control');
+ call('openTab("profile")');get('pAnchor').value='2026-09-29';get('profileForm').onsubmit({preventDefault(){}});ok(state.profile.anchor==='2026-09-30','Non-Wednesday rejected');
+ const boundaries=[['2026-09-17','2026-09-30'],['2026-09-30','2026-09-30'],['2026-10-01','2026-10-14'],['2026-11-01','2026-11-11']];for(const [date,end] of boundaries)ok(call('periodEnd('+JSON.stringify(date)+')')===end,'Period '+date);
+ call('openTab("history");deleteTrip('+JSON.stringify(state.trips[1].id)+')');ok(state.trips.length===3,'Deletion');
+ // Name and reason escaping protects markup within rendered views.
+ state.profile.name='<img src=x onerror=alert(1)>';call('state=JSON.parse(KiloNative.load());openTab("profile")');ok(get('pName').value.startsWith('<img'),'Literal profile value');ok(w.document.querySelectorAll('img').length===1,'No injected image element');
+ const savedTrips=JSON.stringify(state.trips);call('openTab("itinerary")');ok(!!get('it-trip'),'Itinerary view');
+ call('itineraryAction("maps")');ok(w.mapsURL.startsWith('https://www.google.com/maps/dir/'),'Google Maps allowlisted URL');
+ const selected=call('selectedItinerary');call('itineraryAction("done")');ok(state.navigation.progress[selected].next===2,'Progress stored');ok(JSON.stringify(state.trips)===savedTrips,'Progress leaves Excel trips unchanged');
+ await new Promise(r=>setTimeout(r,270));call('itineraryAction("undo")');ok(state.navigation.progress[selected].next===1,'Undo completion');
+
+ call('openTab("route");cancelEdit();addStop(6);addStop(44);addStop(8);returnHome()');
+ const beforeAuto=call('calculate(tripOf()).km'),beforeOrder=call('draft.stops.join(",")');
+ call('optimizeRoute()');ok(call('calculate(tripOf()).km')<=beforeAuto,'Auto ordering never increases grid km');
+ ok(call('draft.stops[0]===data.admin&&draft.stops.at(-1)===data.admin'),'Auto keeps departure and return');
+ ok(w.document.querySelectorAll('[data-drag-stop]').length===3,'School grips, fixed endpoints');
+ ok(!w.document.querySelector('[aria-label^="Monter"]'),'Arrow buttons removed');
+ const grip=w.document.querySelector('[data-drag-stop="1"]'),first=call('draft.stops[1]');
+ grip.dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));
+ ok(call('draft.stops[2]')===first,'Keyboard reorder');
+ ok(w.document.activeElement.dataset.dragStop==='2','Keyboard focus follows school');
+ function pointer(type,y){const event=new w.Event(type,{bubbles:true,cancelable:true});Object.assign(event,{pointerId:7,button:0,clientY:y});return event;}
+ function layout(){w.document.querySelectorAll('[data-stop-index]').forEach(row=>{const top=Number(row.dataset.stopIndex)*80;row.getBoundingClientRect=()=>({top,height:60});});}
+ layout();let handle=w.document.querySelector('[data-drag-stop="1"]');const dragFirst=call('draft.stops[1]');
+ handle.dispatchEvent(pointer('pointerdown',110));w.document.dispatchEvent(pointer('pointermove',270));w.document.dispatchEvent(pointer('pointerup',270));
+ ok(call('draft.stops[3]')===dragFirst,'Pointer drop commits ordered school');
+ layout();const cancelled=call('draft.stops.join(",")');handle=w.document.querySelector('[data-drag-stop="1"]');
+ handle.dispatchEvent(pointer('pointerdown',110));w.document.dispatchEvent(pointer('pointermove',270));w.document.dispatchEvent(pointer('pointercancel',270));
+ ok(call('draft.stops.join(",")')===cancelled,'Cancelled touch preserves order');
+ call('draft.detour=true;draft.extraKm="2";draft.reason="Travaux";draft.detourLeg=1;renderExtras()');
+ const detourOrder=call('draft.stops.join(",")');call('optimizeRoute();reorderStop(1,2)');
+ ok(call('draft.stops.join(",")')===detourOrder&&call('draft.detourLeg')===1,'Detour leg protected');
+ ok(get('autoRoute').disabled&&!w.document.querySelector('[data-drag-stop]:not(:disabled)'),'Detour ordering controls disabled');
+ call('draft.detour=false;renderExtras();saveTrip()');
+ ok(state.trips.at(-1).route.join(',')===detourOrder,'Displayed order saved for Excel and itinerary');
+
+ // Detail view: use the saved detour to verify direction, extra distance and totals.
+ call('openTab("history")');
+ const detourTrip=state.trips.find(t=>t.extraKm>0),savedSnapshot=JSON.stringify(state),periodBefore=call('selectedPeriod');
+ [...w.document.querySelectorAll('[data-trip-detail]')].find(b=>b.dataset.tripDetail===detourTrip.id).click();
+ ok(w.document.querySelector('h1').textContent==='Détail de la sortie','History card opens detail');
+ const detailText=get('app').textContent,detailKm=call('fmt(calculate(state.trips.find(t=>t.id===detailId)).km)');
+ ok(detailText.includes(detailKm+' km')&&detailText.includes('Grille')&&detailText.includes('détour 2,5 km'),'Detail matches calculated detour km');
+ ok(w.document.querySelectorAll('.detail-stop').length===detourTrip.route.length,'Every school appears in order');
+ ok(w.document.querySelectorAll('.detail-leg').length===detourTrip.route.length-1,'Km between every school');
+ ok(detailText.includes('Accident & route fermée'),'Detour reason in detail');
+ ok(JSON.stringify(state)===savedSnapshot,'Read-only details preserve saved data');
+ call('handleBack()');ok(!!get('periodPicker')&&call('selectedPeriod')===periodBefore,'Back retains history period');
+ call('openTripDetail('+JSON.stringify(detourTrip.id)+')');get('detailItinerary').click();
+ ok(call('selectedItinerary')===detourTrip.id&&!!get('it-trip'),'Detail opens correct itinerary');
+ call('openTripDetail('+JSON.stringify(detourTrip.id)+')');get('detailEdit').click();
+ ok(call('editId')===detourTrip.id&&!!get('saveTrip'),'Detail edit opens original trip');call('cancelEdit()');
+ ok(w.document.querySelector('h1').textContent==='Trajet','New home title');
+ call('openTab("profile")');get('pRole').value='Modification non enregistrée';call('openOptions()');
+ ok(w.document.querySelectorAll('[data-theme-choice]').length===4,'Four theme choices');
+ const beforeSettings=JSON.stringify(state);
+ for(const mode of ['dark','pink','oled','light']){
+  w.document.querySelector('[data-theme-choice="'+mode+'"]').click();
+  ok(w.document.documentElement.dataset.theme===mode&&theme===mode,'Theme persists '+mode);
+  ok(w.document.querySelectorAll('[data-theme-choice][aria-pressed="true"]').length===1,'One active theme '+mode);
+ }
+ w.document.querySelector('[data-theme-choice="oled"]').click();call('KiloTheme.load()');
+ ok(w.document.documentElement.dataset.theme==='oled'&&w.document.documentElement.style.colorScheme==='dark','Restored OLED dark controls');
+ themeError='Disque indisponible';w.document.querySelector('[data-theme-choice="pink"]').click();
+ ok(w.document.documentElement.dataset.theme==='oled','Failed preference save keeps previous theme');themeError='';
+ call('clearCache()');ok(cacheCalls===1&&!get('clearCache').disabled,'Cache action completes');
+ ok(JSON.stringify(state)===beforeSettings,'Appearance and cache leave trips/profile untouched');
+ call('requestDataReset()');ok(resetRequests===1&&JSON.stringify(state)===beforeSettings,'Reset only requests native confirmation');
+ call('handleBack()');ok(get('pRole').value==='Modification non enregistrée','Options back preserves unsaved profile');
+ ok(w.document.documentElement.dataset.theme==='oled','Theme retained across navigation');
+ // Load the shipped CSS and check the fixed summary colors in the DOM engine.
+ for(const file of ['material.css']){const node=w.document.createElement('style');node.textContent=fs.readFileSync(path.join(assets,file),'utf8');w.document.head.appendChild(node);}
+ call('openTab("route");KiloTheme.choose("pink")');
+ ok(w.getComputedStyle(w.document.documentElement).getPropertyValue('--primary-container').trim()==='#ffd8e7','Pink summary is rose, not teal');
+ call('KiloTheme.choose("oled")');
+ ok(w.getComputedStyle(w.document.querySelector('.hero')).backgroundColor==='rgb(0, 0, 0)','OLED summary remains black');
+ // Isolated navigation workflow: creation order, persistence, providers and completed groups.
+ state={profile:state.profile,trips:[]};call('state=JSON.parse(KiloNative.load());selectedItinerary=null;itineraryGroup=null;openTab("route");cancelEdit();draft.date="2026-10-20";addStop(6);saveTrip()');
+ const olderCreated=state.trips[0].id;
+ call('draft.date="2026-10-08";addStop(26);saveTrip();openTab("itinerary")');
+ const newestCreated=state.trips.at(-1).id;
+ ok(get('it-trip').value===newestCreated,'Newly created trip active even with an earlier travel date');
+ ok(state.navigation.selectedId===newestCreated,'New selection persisted immediately');
+ call('selectedItinerary=null;itineraryGroup=null;renderItinerary()');
+ ok(get('it-trip').value===newestCreated,'Saved selection restored after reload');
+ ok(get('it-trip').options.length===2,'Active group contains pending trips');
+ const beforeProvider=JSON.stringify(state.trips),beforeProgress=JSON.stringify(state.navigation.progress);
+ get('it-provider').value='waze';get('it-provider').dispatchEvent(new w.Event('change',{bubbles:true}));
+ ok(state.navigation.provider==='waze'&&get('it-provider').value==='waze','Waze preference persists');
+ ok(JSON.stringify(state.navigation.progress)===beforeProgress,'Changing provider preserves progress');
+ call('itineraryAction("maps")');let mapsURL=new URL(w.mapsURL);
+ ok(mapsURL.origin==='https://waze.com'&&mapsURL.pathname==='/ul','Official Waze HTTPS link');
+ ok(mapsURL.searchParams.get('q').includes('Dôme')&&mapsURL.searchParams.get('navigate')==='yes','Waze receives the next school');
+ ok(!w.mapsURL.includes('00123')&&!w.mapsURL.includes('00456'),'Navigation excludes personal identifiers');
+ get('it-provider').value='google';get('it-provider').dispatchEvent(new w.Event('change',{bubbles:true}));
+ call('itineraryAction("maps")');ok(new URL(w.mapsURL).searchParams.get('destination').includes('Dôme'),'Google receives same next school');
+ call('itineraryAction("done")');await new Promise(r=>setTimeout(r,270));
+ ok(w.document.querySelector('[data-it-value="finished"]').getAttribute('aria-pressed')==='true','Completed trip moves to completed group');
+ ok(get('it-trip').options.length===1&&get('it-trip').value===newestCreated,'Completed group excludes pending trips');
+ ok(!w.document.querySelector('[data-it-action="maps"]'),'No navigation button after completion');
+ const lastURL=w.mapsURL;call('itineraryAction("maps")');ok(w.mapsURL===lastURL,'No navigation link generated after completion');
+ w.document.querySelector('[data-it-value="active"]').click();ok(get('it-trip').value===olderCreated,'Pending group retains other trip');
+ w.document.querySelector('[data-it-value="finished"]').click();call('itineraryAction("undo")');await new Promise(r=>setTimeout(r,270));
+ ok(w.document.querySelector('[data-it-value="active"]').getAttribute('aria-pressed')==='true'&&get('it-trip').value===newestCreated,'Undo returns trip to pending without losing selection');
+ w.document.querySelector('[data-it-value="finished"]').click();ok(!get('it-trip')&&get('app').textContent.includes('Aucune sortie terminée'),'Empty completed section is clear');
+ w.document.querySelector('[data-it-value="active"]').click();
+ get('it-trip').value=olderCreated;get('it-trip').dispatchEvent(new w.Event('change',{bubbles:true}));ok(state.navigation.selectedId===olderCreated,'Manual trip selection saved');
+ ok(JSON.stringify(state.trips)===beforeProvider,'Navigation controls leave trip and Excel data unchanged');
+ const realSave=w.KiloNative.save;w.KiloNative.save=()=> 'Test : sauvegarde impossible';
+ call('openTab("route");addStop(44);saveTrip()');
+ ok(state.trips.length===2&&state.navigation.selectedId===olderCreated,'Failed creation leaves active selection unchanged');w.KiloNative.save=realSave;
+ call('cancelEdit();openTab("itinerary")');
+ const isolated={trips:[{id:'a',date:'2026-10-08',route:[1,6,26,1]}]},api=w.KiloItinerary;
+ let followed=api.update(isolated,isolated.trips[0],'provider','waze');followed=api.update(followed,followed.trips[0],'done');
+ ok(new URL(api.maps(followed,call('data.names'),followed.trips[0])).searchParams.get('q').includes('Dôme'),'Waze follows ordered school completion');
+ followed=api.update(followed,followed.trips[0],'done');ok(new URL(api.maps(followed,call('data.names'),followed.trips[0])).searchParams.get('q').includes('Centre administratif'),'Waze handles final return');
+ followed=api.update(followed,followed.trips[0],'done');followed=api.update(followed,followed.trips[0],'reset');ok(api.next(followed,followed.trips[0])===1&&!api.isFinished(followed,followed.trips[0]),'Restart moves completed route back to pending');
+ let rejectedProvider=false;try{api.update(followed,followed.trips[0],'provider','unknown')}catch(e){rejectedProvider=true}ok(rejectedProvider,'Unknown provider rejected');
+ fs.writeFileSync(path.resolve(__dirname,'../../qa/dom-test-result.json'),JSON.stringify({passed:checks,scope:'DOM interactions with simulated Android bridge; no browser layout or Android device test'},null,2));
+ console.log('PASS: '+checks+' DOM interaction checks');dom.window.close();
+})().catch(e=>{console.error(e);dom.window.close();process.exit(1)});

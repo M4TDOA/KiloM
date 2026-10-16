@@ -1,0 +1,8 @@
+{
+  "targetSdk": 36,
+  "minSdk": 26,
+  "bundletoolValid": true,
+  "jarSignatureValid": true,
+  "sha256": "dec1d94fa93b65403630810d10510d6b38ff2fc8538c3aeb9e4de3d29b792184",
+  "sizeBytes": 2996888
+}

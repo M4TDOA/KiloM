@@ -1,0 +1,32 @@
+{
+  "version": "1.2.0",
+  "versionCode": 15,
+  "minSdk": 26,
+  "targetSdk": 35,
+  "debuggable": false,
+  "permissions": [
+    "android.permission.POST_NOTIFICATIONS",
+    "android.permission.RECEIVE_BOOT_COMPLETED",
+    "ca.m4tdoa.kilom.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+  ],
+  "certificateSha256": "83b3cbe1329d6a213520edd241232fb6f0c93015f56e4f46c983305c99b3be6c",
+  "sameCertificateAs119": true,
+  "bridgeMethodsPreserved": [
+    "getTheme",
+    "setTheme",
+    "clearCache",
+    "requestDataReset",
+    "load",
+    "save",
+    "files",
+    "exportPeriod",
+    "shareFile",
+    "openMaps",
+    "saveFile",
+    "notifications",
+    "notificationsEnabled",
+    "close"
+  ],
+  "sha256": "9fedc53a2c9dfd43713f88e5ef91a1303f5e8085ec23822ea2d0d2cde839fc19",
+  "sizeBytes": 2316165
+}

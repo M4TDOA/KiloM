@@ -1,0 +1,54 @@
+plugins { id 'com.android.application' }
+def secret = { String name -> providers.environmentVariable(name).orElse(providers.gradleProperty(name)).orNull }
+def keyPath = secret('KILOM_KEYSTORE')
+def keyAliasValue = secret('KILOM_KEY_ALIAS')
+def storeSecret = secret('KILOM_STORE_PASSWORD')
+def keySecret = secret('KILOM_KEY_PASSWORD') ?: storeSecret
+def hasSigning = keyPath && keyAliasValue && storeSecret && keySecret
+def target = providers.gradleProperty('kilomTargetSdk').getOrElse('35').toInteger()
+if (!(target in [35, 36])) throw new GradleException('kilomTargetSdk doit être 35 ou 36.')
+android {
+    namespace 'ca.m4tdoa.kilom'
+    compileSdk target
+    defaultConfig {
+        applicationId 'ca.m4tdoa.kilom'
+        minSdk 26
+        targetSdk target
+        versionCode 16
+        versionName '1.2.1'
+    }
+    signingConfigs {
+        release {
+            if (hasSigning) {
+                storeFile file(keyPath)
+                storePassword storeSecret
+                keyAlias keyAliasValue
+                keyPassword keySecret
+            }
+            enableV1Signing false
+            enableV2Signing true
+            enableV3Signing true
+        }
+    }
+    buildTypes {
+        release {
+            debuggable false
+            jniDebuggable false
+            minifyEnabled true
+            shrinkResources true
+            signingConfig signingConfigs.release
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug { applicationIdSuffix '.debug'; versionNameSuffix '-debug' }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
+    lint { abortOnError true; checkReleaseBuilds true }
+}
+def validateSigning = tasks.register('validateReleaseSecrets') {
+    doLast {
+        if (!hasSigning) throw new GradleException('Signature release requise. Voir RELEASE.md : KILOM_KEYSTORE, KILOM_KEY_ALIAS, KILOM_STORE_PASSWORD.')
+        if (!file(keyPath).isFile()) throw new GradleException('Le keystore release est introuvable.')
+    }
+}
+tasks.matching { it.name == 'preReleaseBuild' }.configureEach { dependsOn validateSigning }
+dependencies { implementation 'com.google.android.material:material:1.12.0' }

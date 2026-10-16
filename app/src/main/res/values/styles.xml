@@ -1,0 +1,49 @@
+<resources>
+<style name="AppTheme" parent="Theme.Material3.Light.NoActionBar">
+<item name="colorPrimary">#00549F</item>
+<item name="colorOnPrimary">#FFFFFF</item>
+<item name="colorPrimaryContainer">#D6E3FF</item>
+<item name="colorOnPrimaryContainer">#001C3B</item>
+<item name="colorSecondary">#535F70</item>
+<item name="colorOnSecondary">#FFFFFF</item>
+<item name="colorSecondaryContainer">#D7E3F8</item>
+<item name="colorOnSecondaryContainer">#101C2B</item>
+<item name="colorTertiary">#6C5677</item>
+<item name="colorOnTertiary">#FFFFFF</item>
+<item name="colorTertiaryContainer">#F4D9FF</item>
+<item name="colorOnTertiaryContainer">#251431</item>
+<item name="colorSurface">#F9F9FF</item>
+<item name="colorOnSurface">#191C20</item>
+<item name="colorSurfaceVariant">#E0E2EC</item>
+<item name="colorOnSurfaceVariant">#43474E</item>
+<item name="colorOutline">#74777F</item>
+<item name="colorError">#BA1A1A</item>
+<item name="colorOnError">#FFFFFF</item>
+<item name="colorErrorContainer">#FFDAD6</item>
+<item name="colorOnErrorContainer">#410002</item>
+<item name="fontFamily">@font/roboto</item><item name="android:fontFamily">@font/roboto</item><item name="android:windowLightStatusBar">true</item><item name="android:windowBackground">#F9F9FF</item><item name="android:colorAccent">#00549F</item></style>
+<style name="AppThemeDark" parent="Theme.Material3.Dark.NoActionBar">
+<item name="colorPrimary">#A8C8FF</item>
+<item name="colorOnPrimary">#00305F</item>
+<item name="colorPrimaryContainer">#004785</item>
+<item name="colorOnPrimaryContainer">#D6E3FF</item>
+<item name="colorSecondary">#BBC7DB</item>
+<item name="colorOnSecondary">#253142</item>
+<item name="colorSecondaryContainer">#3B4859</item>
+<item name="colorOnSecondaryContainer">#D7E3F8</item>
+<item name="colorTertiary">#6C5677</item>
+<item name="colorOnTertiary">#FFFFFF</item>
+<item name="colorTertiaryContainer">#F4D9FF</item>
+<item name="colorOnTertiaryContainer">#251431</item>
+<item name="colorSurface">#111318</item>
+<item name="colorOnSurface">#E2E2E9</item>
+<item name="colorSurfaceVariant">#43474E</item>
+<item name="colorOnSurfaceVariant">#C3C7CF</item>
+<item name="colorOutline">#8D9199</item>
+<item name="colorError">#FFB4AB</item>
+<item name="colorOnError">#690005</item>
+<item name="colorErrorContainer">#93000A</item>
+<item name="colorOnErrorContainer">#FFDAD6</item>
+<item name="fontFamily">@font/roboto</item><item name="android:fontFamily">@font/roboto</item><item name="android:windowLightStatusBar">false</item><item name="android:windowBackground">#111318</item><item name="android:colorAccent">#A8C8FF</item></style>
+<style name="LaunchTheme" parent="AppTheme"><item name="android:windowBackground">@drawable/splash_background</item></style>
+</resources>
