@@ -35,3 +35,4 @@
 ## 📜 Licence
 
 Projet sous licence libre. Vous êtes libre de consulter, modifier ou adapter le code à vos besoins.
+Crée avec l'aide de GPT-6-Astra de Open AI
