@@ -1,6 +1,6 @@
 # 🚗 KiloM - Suivi des déplacements & Réclamation de frais
 
-**KiloM** est une application Android moderne et sécurisée conçue pour simplifier le suivi des déplacements, l'optimisation des tournées et la génération automatique de rapports de réclamation de frais de déplacement (conforme aux normes CSSPO).
+**KiloM** est une application Android conçue pour simplifier le suivi des déplacements, l'optimisation des tournées et la génération automatique de rapports de réclamation de frais de déplacement.
 
 ---
 
