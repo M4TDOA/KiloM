@@ -17,7 +17,7 @@
 ## 📥 Téléchargement & Installation
 
 1. Rendez-vous dans la section [**Releases**](../../releases) du dépôt.
-2. Téléchargez le fichier **`KiloM-1.2.0.apk`** (ou la version la plus récente).
+2. Téléchargez le fichier **`KiloM-1.2.1.apk`** (ou la version la plus récente).
 3. Ouvrez le fichier téléchargé sur votre appareil Android pour l'installer.
 
 > *Remarque : Si votre téléphone bloque l'installation, autorisez l'installation d'applications issues de sources inconnues pour votre navigateur ou votre gestionnaire de fichiers.*
